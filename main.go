@@ -12,8 +12,8 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/genuinetools/secping/version"
 	"github.com/google/go-github/github"
+	"github.com/jessfraz/secping/version"
 	"github.com/sirupsen/logrus"
 )
 
