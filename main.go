@@ -107,7 +107,7 @@ func main() {
 	client := github.NewClient(tc)
 
 	// If the user passed a repo, just get the contacts for that repo.
-	if len(repo) >= 0 {
+	if len(repo) > 0 {
 		// Parse git repo for username and repo name.
 		r := strings.SplitN(repo, "/", 2)
 		if len(r) < 2 {
@@ -115,6 +115,7 @@ func main() {
 		}
 		logrus.Infof("Getting SECURITY_CONTACTS for %s/%s...", r[0], r[1])
 		getSecurityContactsForRepo(ctx, client, r[0], r[1])
+		return
 	}
 
 	// The user did not pass a specific repo so get all.
