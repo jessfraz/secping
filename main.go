@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/genuinetools/pepper/version"
+	"github.com/genuinetools/secping/version"
 	"github.com/google/go-github/github"
 	"github.com/sirupsen/logrus"
 )
@@ -322,7 +322,6 @@ func getUserEmail(ctx context.Context, client *github.Client, user, owner, repo 
 }
 
 func getIssue(ctx context.Context, client *github.Client, owner, repo string) (*github.Issue, error) {
-	// First make sure an open issue doesn't already exist.
 	issues, _, err := client.Issues.ListByRepo(ctx, owner, repo, &github.IssueListByRepoOptions{
 		Creator: "jessfraz",
 	})
