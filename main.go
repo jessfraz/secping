@@ -143,6 +143,11 @@ func getRepositories(ctx context.Context, client *github.Client, page, perPage i
 	}
 
 	for _, repo := range repos {
+		// Skip kubernetes/kubernetes-template-project as it is the template.
+		if repo.GetFullName() == "kubernetes/kubernetes-template-project" {
+			continue
+		}
+
 		getSecurityContactsForRepo(ctx, client, repo.GetOwner().GetLogin(), repo.GetName())
 	}
 
