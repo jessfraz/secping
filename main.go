@@ -169,7 +169,11 @@ func getSecurityContactsForRepo(ctx context.Context, client *github.Client, owne
 				"repo": fmt.Sprintf("%s/%s", owner, repo),
 			}).Warn("SECURITY_CONTACTS does not exist")
 
-			createIssue(ctx, client, owner, repo)
+			if err := createIssue(ctx, client, owner, repo); err != nil {
+				logrus.WithFields(logrus.Fields{
+					"repo": fmt.Sprintf("%s/%s", owner, repo),
+				}).Error(err)
+			}
 			return
 		}
 
