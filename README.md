@@ -8,8 +8,8 @@ A tool for reading the SECURITY_CONTACTS file in a kubernetes repository.
 
 #### Binaries
 
-- **darwin** [386](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-darwin-386) / [amd64](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-darwin-amd64)
-- **freebsd** [386](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-freebsd-386) / [amd64](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-freebsd-amd64)
-- **linux** [386](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-linux-386) / [amd64](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-linux-amd64) / [arm](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-linux-arm) / [arm64](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-linux-arm64)
-- **solaris** [amd64](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-solaris-amd64)
-- **windows** [386](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-windows-386) / [amd64](https://github.com/jessfraz/secping/releases/download/v0.0.0/secping-windows-amd64)
+- **darwin** [386](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-darwin-386) / [amd64](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-darwin-amd64)
+- **freebsd** [386](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-freebsd-386) / [amd64](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-freebsd-amd64)
+- **linux** [386](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-linux-386) / [amd64](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-linux-amd64) / [arm](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-linux-arm) / [arm64](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-linux-arm64)
+- **solaris** [amd64](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-solaris-amd64)
+- **windows** [386](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-windows-386) / [amd64](https://github.com/jessfraz/secping/releases/download/v0.0.1/secping-windows-amd64)
