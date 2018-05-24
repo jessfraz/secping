@@ -19,7 +19,7 @@ import (
 
 const (
 	// BANNER is what is printed for help/info output.
-	BANNER = `secping
+	BANNER = `secping [OPTIONS] [REPO] [REPO...]
 
  A tool for reading the SECURITY_CONTACTS file in a kubernetes repository.
  Version: %s
@@ -29,8 +29,9 @@ const (
 )
 
 var (
+	repos []string
+
 	token string
-	repo  string
 
 	debug bool
 	vrsn  bool
@@ -46,6 +47,26 @@ var (
 		"kubernetes-sig-testing",
 		"kubernetes-sigs",
 	}
+
+	issueTitle = "Create a SECURITY_CONTACTS file."
+	issueBody  = `As per the email sent to kubernetes-dev[1], please create a SECURITY_CONTACTS
+file.
+
+The template for the file can be found in the kubernetes-template repository[2].
+A description for the file is in the steering-committee docs[3], you might need
+to search that page for "Security Contacts".
+
+Please feel free to ping me on the PR when you make it, otherwise I will see when
+you close this issue. :)
+
+Thanks so much, let me know if you have any questions.
+
+(This issue was generated from a tool, apologies for any weirdness.)
+
+[1] https://groups.google.com/forum/#!topic/kubernetes-dev/codeiIoQ6QE
+[2] https://github.com/kubernetes/kubernetes-template-project/blob/master/SECURITY_CONTACTS
+[3] https://github.com/kubernetes/community/blob/master/committee-steering/governance/sig-governance-template-short.md
+`
 )
 
 func init() {
@@ -64,7 +85,7 @@ func init() {
 	flag.Parse()
 
 	if vrsn {
-		fmt.Printf("pepper version %s, build %s", version.VERSION, version.GITCOMMIT)
+		fmt.Printf("secping version %s, build %s", version.VERSION, version.GITCOMMIT)
 		os.Exit(0)
 	}
 
@@ -77,10 +98,7 @@ func init() {
 		usageAndExit("GitHub token cannot be empty.", 1)
 	}
 
-	if flag.NArg() > 0 {
-		repo = flag.Arg(0)
-	}
-
+	repos = flag.Args()
 }
 
 func main() {
@@ -106,15 +124,27 @@ func main() {
 	// Create the github client.
 	client := github.NewClient(tc)
 
-	// If the user passed a repo, just get the contacts for that repo.
-	if len(repo) > 0 {
+	// If the user passed a repo or repos, just get the contacts for those.
+	for _, repo := range repos {
 		// Parse git repo for username and repo name.
 		r := strings.SplitN(repo, "/", 2)
 		if len(r) < 2 {
-			logrus.Fatalf("Repository name %q could not be parsed. Try something like: kubernetes/kubernetes", repo)
+			logrus.WithFields(logrus.Fields{
+				"repo": repo,
+			}).Fatal("Repository name could not be parsed. Try something like: kubernetes/kubernetes")
 		}
-		logrus.Infof("Getting SECURITY_CONTACTS for %s/%s...", r[0], r[1])
-		getSecurityContactsForRepo(ctx, client, r[0], r[1])
+
+		// Get the security contacts for the repository.
+		if err := getSecurityContactsForRepo(ctx, client, r[0], r[1]); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"repo": repo,
+			}).Fatal(err)
+		}
+	}
+
+	if len(repos) > 0 {
+		// Return early if the user specified specific repositories,
+		// as we don't want to also return all of them.
 		return
 	}
 
@@ -123,7 +153,9 @@ func main() {
 		page := 1
 		perPage := 100
 		if err := getRepositories(ctx, client, page, perPage, org); err != nil {
-			logrus.Fatal(err)
+			logrus.WithFields(logrus.Fields{
+				"org": org,
+			}).Fatal(err)
 		}
 	}
 }
@@ -139,7 +171,7 @@ func getRepositories(ctx context.Context, client *github.Client, page, perPage i
 
 	repos, resp, err := client.Repositories.ListByOrg(ctx, org, opt)
 	if err != nil {
-		return err
+		return fmt.Errorf("listing repositories by org failed: %v", err)
 	}
 
 	for _, repo := range repos {
@@ -148,7 +180,11 @@ func getRepositories(ctx context.Context, client *github.Client, page, perPage i
 			continue
 		}
 
-		getSecurityContactsForRepo(ctx, client, repo.GetOwner().GetLogin(), repo.GetName())
+		if err := getSecurityContactsForRepo(ctx, client, repo.GetOwner().GetLogin(), repo.GetName()); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"repo": repo.GetFullName(),
+			}).Error(err)
+		}
 	}
 
 	// Return early if we are on the last page.
@@ -160,36 +196,72 @@ func getRepositories(ctx context.Context, client *github.Client, page, perPage i
 	return getRepositories(ctx, client, page, perPage, org)
 }
 
-func getSecurityContactsForRepo(ctx context.Context, client *github.Client, owner, repo string) {
+func getSecurityContactsForRepo(ctx context.Context, client *github.Client, owner, repo string) error {
+	// Get the issue on the repository stating that they need to add a
+	// SECURITY_CONTACTS file. This will be checked regardless of if the file
+	// exists or not. If the file does not exist, we need this to know if we need
+	// to open a new issue. If it does exist, we need this to make sure the
+	// issue was closed and cleaned up.
+	issue, err := getIssue(ctx, client, owner, repo)
+	if err != nil {
+		return fmt.Errorf("getting issue failed: %v", err)
+	}
+
 	// Get the file contents for SECURITY_CONTACTS.
 	content, _, _, err := client.Repositories.GetContents(ctx, owner, repo, "SECURITY_CONTACTS", &github.RepositoryContentGetOptions{Ref: "master"})
 	if err != nil {
-		if strings.Contains(err.Error(), "404") {
-			logrus.WithFields(logrus.Fields{
-				"repo": fmt.Sprintf("%s/%s", owner, repo),
-			}).Warn("SECURITY_CONTACTS does not exist")
+		if !strings.Contains(err.Error(), "404") {
+			// Return the error early here if it is not a "Not Found" error.
+			return fmt.Errorf("getting SECURITY_CONTACTS file failed: %v", err)
+		}
 
-			if err := createIssue(ctx, client, owner, repo); err != nil {
+		// The file was not found. We need to check if we already have an existing
+		// issue on the repository opened, and if not create a new issue.
+		if issue != nil {
+			// The issue exists. Make sure it is still open.
+			if issue.GetState() != "open" {
 				logrus.WithFields(logrus.Fields{
-					"repo": fmt.Sprintf("%s/%s", owner, repo),
-				}).Error(err)
+					"repo":  fmt.Sprintf("%s/%s", owner, repo),
+					"issue": issue.GetHTMLURL(),
+					"state": issue.GetState(),
+				}).Warn("issue exists, but it's state should be open")
 			}
-			return
+		} else {
+			// The issue does not already exist. Create the issue in the
+			// repository that they need to add a SECURITY_CONTACTS file.
+			issue, _, err = client.Issues.Create(ctx, owner, repo, &github.IssueRequest{
+				Title: &issueTitle,
+				Body:  &issueBody,
+			})
+			if err != nil {
+				return fmt.Errorf("creating issue failed: %v", err)
+			}
 		}
 
 		logrus.WithFields(logrus.Fields{
-			"repo": fmt.Sprintf("%s/%s", owner, repo),
-		}).Errorf("getting SECURITY_CONTACTS file failed: %v", err)
-		return
+			"repo":  fmt.Sprintf("%s/%s", owner, repo),
+			"issue": issue.GetHTMLURL(),
+			"state": issue.GetState(),
+		}).Warn("SECURITY_CONTACTS does not exist")
+
+		return nil
 	}
 
 	// Get the file contents.
 	file, err := content.GetContent()
 	if err != nil {
+		return fmt.Errorf("getting SECURITY_CONTACTS content failed: %v", err)
+	}
+
+	// Clearly we have a SECURITY_CONTACTS file, let's make sure the original
+	// issue we opened on the repository is now closed.
+	if issue != nil && issue.GetState() == "open" {
+		// The issue is still open we should close it.
 		logrus.WithFields(logrus.Fields{
-			"repo": fmt.Sprintf("%s/%s", owner, repo),
-		}).Errorf("getting SECURITY_CONTACTS content failed: %v", err)
-		return
+			"repo":  fmt.Sprintf("%s/%s", owner, repo),
+			"issue": issue.GetHTMLURL(),
+			"state": issue.GetState(),
+		}).Warn("issue state should be closed")
 	}
 
 	// Iterate over each line.
@@ -204,15 +276,15 @@ func getSecurityContactsForRepo(ctx context.Context, client *github.Client, owne
 
 		email, err := getUserEmail(ctx, client, line, owner, repo)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"repo":    fmt.Sprintf("%s/%s", owner, repo),
-				"contact": line,
-			}).Warn(err)
+			return fmt.Errorf("getting user %s's email failed: %v", line, err)
 		}
+
 		logrus.WithFields(logrus.Fields{
 			"repo": fmt.Sprintf("%s/%s", owner, repo),
 		}).Infof("@%s, %s", line, email)
 	}
+
+	return nil
 }
 
 // getUserEmail tries to get an email from a github username one of two ways:
@@ -249,60 +321,23 @@ func getUserEmail(ctx context.Context, client *github.Client, user, owner, repo 
 	return email, nil
 }
 
-func createIssue(ctx context.Context, client *github.Client, owner, repo string) error {
-	title := "Create a SECURITY_CONTACTS file."
-	body := `As per the email sent to kubernetes-dev[1], please create a SECURITY_CONTACTS
-file.
-
-The template for the file can be found in the kubernetes-template repository[2].
-A description for the file is in the steering-committee docs[3], you might need
-to search that page for "Security Contacts".
-
-Please feel free to ping me on the PR when you make it, otherwise I will see when
-you close this issue. :)
-
-Thanks so much, let me know if you have any questions.
-
-(This issue was generated from a tool, apologies for any weirdness.)
-
-[1] https://groups.google.com/forum/#!topic/kubernetes-dev/codeiIoQ6QE
-[2] https://github.com/kubernetes/kubernetes-template-project/blob/master/SECURITY_CONTACTS
-[3] https://github.com/kubernetes/community/blob/master/committee-steering/governance/sig-governance-template-short.md
-`
-
+func getIssue(ctx context.Context, client *github.Client, owner, repo string) (*github.Issue, error) {
 	// First make sure an open issue doesn't already exist.
 	issues, _, err := client.Issues.ListByRepo(ctx, owner, repo, &github.IssueListByRepoOptions{
 		Creator: "jessfraz",
 	})
 	if err != nil {
-		return fmt.Errorf("listing issues in %s/%s failed: %v", owner, repo, err)
+		return nil, fmt.Errorf("listing issues in %s/%s failed: %v", owner, repo, err)
 	}
 
 	// Try to match the title to the issue.
 	for _, issue := range issues {
-		if issue.GetTitle() == title {
-			logrus.WithFields(logrus.Fields{
-				"repo": fmt.Sprintf("%s/%s", owner, repo),
-			}).Infof("open issue exists: %s", issue.GetHTMLURL())
-
-			return nil
+		if issue.GetTitle() == issueTitle {
+			return issue, nil
 		}
 	}
 
-	// Create an issue in the repository that they need to add a SECURITY_CONTACTS file.
-	issue, _, err := client.Issues.Create(ctx, owner, repo, &github.IssueRequest{
-		Title: &title,
-		Body:  &body,
-	})
-	if err != nil {
-		return fmt.Errorf("creating issue in %s/%s failed: %v", owner, repo, err)
-	}
-
-	logrus.WithFields(logrus.Fields{
-		"repo": fmt.Sprintf("%s/%s", owner, repo),
-	}).Infof("opened issue: %s", issue.GetHTMLURL())
-
-	return nil
+	return nil, nil
 }
 
 func usageAndExit(message string, exitCode int) {
