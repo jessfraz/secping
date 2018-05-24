@@ -188,13 +188,54 @@ func getSecurityContactsForRepo(ctx context.Context, client *github.Client, owne
 
 		// Ignore the comment or empty lines.
 		if strings.HasPrefix(line, "#") || len(line) <= 0 {
-			return
+			continue
 		}
 
+		email, err := getUserEmail(ctx, client, line, owner, repo)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"repo":    fmt.Sprintf("%s/%s", owner, repo),
+				"contact": line,
+			}).Warn(err)
+		}
 		logrus.WithFields(logrus.Fields{
 			"repo": fmt.Sprintf("%s/%s", owner, repo),
-		}).Infof("contact: @%s", line)
+		}).Infof("@%s, %s", line, email)
 	}
+}
+
+// getUserEmail tries to get an email from a github username one of two ways:
+// - their public email on github
+// - their email used to make commits
+func getUserEmail(ctx context.Context, client *github.Client, user, owner, repo string) (string, error) {
+	// First, check if they have a public email on github.
+	u, _, err := client.Users.Get(ctx, user)
+	if err != nil {
+		return "", fmt.Errorf("getting user %s failed: %v", user, err)
+	}
+
+	email := u.GetEmail()
+	if len(email) > 0 {
+		// Return early because we found an email address.
+		return email, nil
+	}
+
+	// We did not find a public email so get one of their commits in the
+	// repository and find the email through that.
+	commits, _, err := client.Repositories.ListCommits(ctx, owner, repo, &github.CommitsListOptions{
+		Author: user,
+	})
+	if err != nil {
+		return "", fmt.Errorf("getting user %s commits in %s/%s failed: %v", user, owner, repo, err)
+	}
+	for _, commit := range commits {
+		email = commit.GetCommit().GetAuthor().GetEmail()
+		if len(email) > 0 {
+			return email, nil
+		}
+	}
+
+	return email, nil
 }
 
 func usageAndExit(message string, exitCode int) {
