@@ -1,62 +1,58 @@
----
-  language: go
-  sudo: false
-  notifications:
-    email: true
-  go:
-    - 1.x
-    - tip
-  matrix:
-    allow_failures:
-      - go: tip
-    fast_finish: true
-  install:
-    - go get github.com/golang/lint/golint
-    - go get honnef.co/go/tools/cmd/staticcheck
-  script:
-    - make all
-    - make cover
-    - make release
-  after_success:
-    - bash <(curl -s https://codecov.io/bash)
-  deploy:
-    provider: releases
-    api_key:
-      secure: "RIq8+0Y4ORVtD3/88Jf+1qWxHRH6AObVzjFZaqWPrBmzyMo5/siWRgI2XA8jo8ujx2f0HErKgXtpSX+dnPCrEJ4DMjkZEkvk6MSCbNE4dCzOIaATNQmqQv7Cj95GdwkLVZm3aT5T9hnx7RGvPVNajY7F0+L01SxrPjpY0l6e57QR3XbmmChkflCwREgrbhKI6v5dWbFaC17uUSpY5uY8qrTZNG84thc9zswzOXkAWYDXkKhxi9fonFCEuT/rGZTnS3y5M2pS59v0YHbJiXdWp83YRtT2e3ia7y9f2K9kAMeVJiQc55oWvrryAL8SHndcwYSLz83DJMNsQ3mufxda7G2kPVfre2LPykVmrMIMnxMaudozUmhqvEoYANnQ1ppqMbfAeALszXCmXyzc5EPh25StBtAgCGjyCQ5QS6bZUM2PtJeEjZnS6Sfi1LwQc675uDqVH7DxfqpDx8kbooHgfPfPMrXqT4SCdy3SACzKTBggqRCgz48I30FsBxQd52GGRbp9CglAd2WDzrijkFiCIJzauJazy3JouoEbfVBi0mjiB8wAQ4DA1wLbfd0smnQ4nJRUKqj9Q8bArf89aGHPaU5oJDjGjeFMn7nAodh9ZIMFsOIOf2FruKL6Mz1+qCEmD6pEjDsRMDWnC5TdbOz41QEqum9Q1mp1ZCZ1+LqsDyo="
-    file:
-      - cross/secping-linux-amd64.md5
-      - cross/secping-windows-386.sha256
-      - cross/secping-linux-arm
-      - cross/secping-darwin-amd64.md5
-      - cross/secping-darwin-amd64
-      - cross/secping-solaris-amd64.md5
-      - cross/secping-linux-arm64.sha256
-      - cross/secping-linux-arm.sha256
-      - cross/secping-linux-386.sha256
-      - cross/secping-darwin-386.md5
-      - cross/secping-windows-386.md5
-      - cross/secping-freebsd-amd64.md5
-      - cross/secping-linux-arm64.md5
-      - cross/secping-linux-arm64
-      - cross/secping-freebsd-amd64.sha256
-      - cross/secping-freebsd-386.md5
-      - cross/secping-linux-amd64.sha256
-      - cross/secping-linux-386.md5
-      - cross/secping-freebsd-386
-      - cross/secping-solaris-amd64.sha256
-      - cross/secping-windows-amd64
-      - cross/secping-windows-amd64.md5
-      - cross/secping-windows-amd64.sha256
-      - cross/secping-linux-arm.md5
-      - cross/secping-darwin-386.sha256
-      - cross/secping-darwin-amd64.sha256
-      - cross/secping-windows-386
-      - cross/secping-solaris-amd64
-      - cross/secping-darwin-386
-      - cross/secping-linux-386
-      - cross/secping-freebsd-amd64
-      - cross/secping-freebsd-386.sha256
-      - cross/secping-linux-amd64
-    skip_cleanup: true
-    on:
-      tags: true
+language: go
+sudo: false
+go:
+  - 1.10.x
+before_install:
+  - go get github.com/golang/lint/golint
+  - go get honnef.co/go/tools/cmd/staticcheck
+jobs:
+  include:
+    - script: make all
+    - stage: Run Test Coverage
+      script: make cover
+      after_success: bash <(curl -s https://codecov.io/bash)
+    - stage: Build Release
+      script:
+        - make release
+        - echo "Deploying to GitHub releases ..."
+      deploy:
+        provider: releases
+        file:
+          - cross/secping-linux-amd64.md5
+          - cross/secping-windows-386.sha256
+          - cross/secping-linux-arm
+          - cross/secping-darwin-amd64.md5
+          - cross/secping-darwin-amd64
+          - cross/secping-solaris-amd64.md5
+          - cross/secping-linux-arm64.sha256
+          - cross/secping-linux-arm.sha256
+          - cross/secping-linux-386.sha256
+          - cross/secping-darwin-386.md5
+          - cross/secping-windows-386.md5
+          - cross/secping-freebsd-amd64.md5
+          - cross/secping-linux-arm64.md5
+          - cross/secping-linux-arm64
+          - cross/secping-freebsd-amd64.sha256
+          - cross/secping-freebsd-386.md5
+          - cross/secping-linux-amd64.sha256
+          - cross/secping-linux-386.md5
+          - cross/secping-freebsd-386
+          - cross/secping-solaris-amd64.sha256
+          - cross/secping-windows-amd64
+          - cross/secping-windows-amd64.md5
+          - cross/secping-windows-amd64.sha256
+          - cross/secping-linux-arm.md5
+          - cross/secping-darwin-386.sha256
+          - cross/secping-darwin-amd64.sha256
+          - cross/secping-windows-386
+          - cross/secping-solaris-amd64
+          - cross/secping-darwin-386
+          - cross/secping-linux-386
+          - cross/secping-freebsd-amd64
+          - cross/secping-freebsd-386.sha256
+          - cross/secping-linux-amd64
+        skip_cleanup: true
+        on:
+          tags: true
+        api_key:
+          secure: "RIq8+0Y4ORVtD3/88Jf+1qWxHRH6AObVzjFZaqWPrBmzyMo5/siWRgI2XA8jo8ujx2f0HErKgXtpSX+dnPCrEJ4DMjkZEkvk6MSCbNE4dCzOIaATNQmqQv7Cj95GdwkLVZm3aT5T9hnx7RGvPVNajY7F0+L01SxrPjpY0l6e57QR3XbmmChkflCwREgrbhKI6v5dWbFaC17uUSpY5uY8qrTZNG84thc9zswzOXkAWYDXkKhxi9fonFCEuT/rGZTnS3y5M2pS59v0YHbJiXdWp83YRtT2e3ia7y9f2K9kAMeVJiQc55oWvrryAL8SHndcwYSLz83DJMNsQ3mufxda7G2kPVfre2LPykVmrMIMnxMaudozUmhqvEoYANnQ1ppqMbfAeALszXCmXyzc5EPh25StBtAgCGjyCQ5QS6bZUM2PtJeEjZnS6Sfi1LwQc675uDqVH7DxfqpDx8kbooHgfPfPMrXqT4SCdy3SACzKTBggqRCgz48I30FsBxQd52GGRbp9CglAd2WDzrijkFiCIJzauJazy3JouoEbfVBi0mjiB8wAQ4DA1wLbfd0smnQ4nJRUKqj9Q8bArf89aGHPaU5oJDjGjeFMn7nAodh9ZIMFsOIOf2FruKL6Mz1+qCEmD6pEjDsRMDWnC5TdbOz41QEqum9Q1mp1ZCZ1+LqsDyo="
