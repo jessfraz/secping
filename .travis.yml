@@ -18,39 +18,39 @@ jobs:
       deploy:
         provider: releases
         file:
-          - cross/secping-linux-amd64.md5
-          - cross/secping-windows-386.sha256
-          - cross/secping-linux-arm
-          - cross/secping-darwin-amd64.md5
           - cross/secping-darwin-amd64
-          - cross/secping-solaris-amd64.md5
-          - cross/secping-linux-arm64.sha256
-          - cross/secping-linux-arm.sha256
-          - cross/secping-linux-386.sha256
+          - cross/secping-darwin-amd64.md5
+          - cross/secping-darwin-amd64.sha256
+          - cross/secping-darwin-386
           - cross/secping-darwin-386.md5
-          - cross/secping-windows-386.md5
+          - cross/secping-darwin-386.sha256
+          - cross/secping-freebsd-amd64
           - cross/secping-freebsd-amd64.md5
-          - cross/secping-linux-arm64.md5
-          - cross/secping-linux-arm64
           - cross/secping-freebsd-amd64.sha256
-          - cross/secping-freebsd-386.md5
-          - cross/secping-linux-amd64.sha256
-          - cross/secping-linux-386.md5
           - cross/secping-freebsd-386
+          - cross/secping-freebsd-386.md5
+          - cross/secping-freebsd-386.sha256
+          - cross/secping-linux-arm
+          - cross/secping-linux-arm.md5
+          - cross/secping-linux-arm.sha256
+          - cross/secping-linux-arm64
+          - cross/secping-linux-arm64.md5
+          - cross/secping-linux-arm64.sha256
+          - cross/secping-linux-amd64
+          - cross/secping-linux-amd64.md5
+          - cross/secping-linux-amd64.sha256
+          - cross/secping-linux-386
+          - cross/secping-linux-386.md5
+          - cross/secping-linux-386.sha256
+          - cross/secping-solaris-amd64
+          - cross/secping-solaris-amd64.md5
           - cross/secping-solaris-amd64.sha256
           - cross/secping-windows-amd64
           - cross/secping-windows-amd64.md5
           - cross/secping-windows-amd64.sha256
-          - cross/secping-linux-arm.md5
-          - cross/secping-darwin-386.sha256
-          - cross/secping-darwin-amd64.sha256
           - cross/secping-windows-386
-          - cross/secping-solaris-amd64
-          - cross/secping-darwin-386
-          - cross/secping-linux-386
-          - cross/secping-freebsd-amd64
-          - cross/secping-freebsd-386.sha256
-          - cross/secping-linux-amd64
+          - cross/secping-windows-386.md5
+          - cross/secping-windows-386.sha256
         skip_cleanup: true
         on:
           tags: true
