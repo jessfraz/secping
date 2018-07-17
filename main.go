@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"golang.org/x/oauth2"
 
+	"github.com/genuinetools/pkg/cli"
 	"github.com/google/go-github/github"
 	"github.com/jessfraz/secping/version"
 	"github.com/sirupsen/logrus"
@@ -21,7 +23,7 @@ const (
 	// BANNER is what is printed for help/info output.
 	BANNER = `secping [OPTIONS] [REPO] [REPO...]
 
- A tool for reading the SECURITY_CONTACTS file in a kubernetes repository.
+ .
  Version: %s
  Build: %s
 
@@ -29,12 +31,9 @@ const (
 )
 
 var (
-	repos []string
-
 	token string
 
 	debug bool
-	vrsn  bool
 
 	// This list of organizations comes from:
 	// https://github.com/kubernetes/community/blob/master/org-owners-guide.md#current-organizations-in-use
@@ -69,95 +68,100 @@ Thanks so much, let me know if you have any questions.
 `
 )
 
-func init() {
-	// parse flags
-	flag.StringVar(&token, "token", os.Getenv("GITHUB_TOKEN"), "GitHub API token (or env var GITHUB_TOKEN)")
-
-	flag.BoolVar(&vrsn, "version", false, "print version and exit")
-	flag.BoolVar(&vrsn, "v", false, "print version and exit (shorthand)")
-	flag.BoolVar(&debug, "d", false, "run in debug mode")
-
-	flag.Usage = func() {
-		fmt.Fprint(os.Stderr, fmt.Sprintf(BANNER, version.VERSION, version.GITCOMMIT))
-		flag.PrintDefaults()
-	}
-
-	flag.Parse()
-
-	if vrsn {
-		fmt.Printf("secping version %s, build %s", version.VERSION, version.GITCOMMIT)
-		os.Exit(0)
-	}
-
-	// set log level
-	if debug {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
-
-	if token == "" {
-		usageAndExit("GitHub token cannot be empty.", 1)
-	}
-
-	repos = flag.Args()
-}
-
 func main() {
-	// On ^C, or SIGTERM handle exit.
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
-	go func() {
-		for sig := range c {
-			logrus.Infof("Received %s, exiting.", sig.String())
-			os.Exit(0)
-		}
-	}()
+	// Create a new cli program.
+	p := cli.NewProgram()
+	p.Name = "secping"
+	p.Description = "A tool for reading the SECURITY_CONTACTS file in a kubernetes repository"
 
-	ctx := context.Background()
+	// Set the GitCommit and Version.
+	p.GitCommit = version.GITCOMMIT
+	p.Version = version.VERSION
 
-	// Create the http client.
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: token},
-	)
-	tc := oauth2.NewClient(ctx, ts)
+	// Setup the global flags.
+	p.FlagSet = flag.NewFlagSet("global", flag.ExitOnError)
+	p.FlagSet.StringVar(&token, "token", os.Getenv("GITHUB_TOKEN"), "GitHub API token (or env var GITHUB_TOKEN)")
 
-	// Create the github client.
-	client := github.NewClient(tc)
+	p.FlagSet.BoolVar(&debug, "d", false, "enable debug logging")
 
-	// If the user passed a repo or repos, just get the contacts for those.
-	for _, repo := range repos {
-		// Parse git repo for username and repo name.
-		r := strings.SplitN(repo, "/", 2)
-		if len(r) < 2 {
-			logrus.WithFields(logrus.Fields{
-				"repo": repo,
-			}).Fatal("Repository name could not be parsed. Try something like: kubernetes/kubernetes")
+	// Set the before function.
+	p.Before = func(ctx context.Context) error {
+		// Set the log level.
+		if debug {
+			logrus.SetLevel(logrus.DebugLevel)
 		}
 
-		// Get the security contacts for the repository.
-		if err := getSecurityContactsForRepo(ctx, client, r[0], r[1]); err != nil {
-			logrus.WithFields(logrus.Fields{
-				"repo": repo,
-			}).Fatal(err)
+		if token == "" {
+			return errors.New("GitHub token cannot be empty")
 		}
+
+		return nil
 	}
 
-	if len(repos) > 0 {
-		// Return early if the user specified specific repositories,
-		// as we don't want to also return all of them.
-		return
+	// Set the main program action.
+	p.Action = func(ctx context.Context, repos []string) error {
+		// On ^C, or SIGTERM handle exit.
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		signal.Notify(c, syscall.SIGTERM)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithCancel(ctx)
+		go func() {
+			for sig := range c {
+				logrus.Infof("Received %s, exiting.", sig.String())
+				cancel()
+				os.Exit(0)
+			}
+		}()
+
+		// Create the http client.
+		ts := oauth2.StaticTokenSource(
+			&oauth2.Token{AccessToken: token},
+		)
+		tc := oauth2.NewClient(ctx, ts)
+
+		// Create the github client.
+		client := github.NewClient(tc)
+
+		// If the user passed a repo or repos, just get the contacts for those.
+		for _, repo := range repos {
+			// Parse git repo for username and repo name.
+			r := strings.SplitN(repo, "/", 2)
+			if len(r) < 2 {
+				logrus.WithFields(logrus.Fields{
+					"repo": repo,
+				}).Fatal("Repository name could not be parsed. Try something like: kubernetes/kubernetes")
+			}
+
+			// Get the security contacts for the repository.
+			if err := getSecurityContactsForRepo(ctx, client, r[0], r[1]); err != nil {
+				logrus.WithFields(logrus.Fields{
+					"repo": repo,
+				}).Fatal(err)
+			}
+		}
+
+		if len(repos) > 0 {
+			// Return early if the user specified specific repositories,
+			// as we don't want to also return all of them.
+			return nil
+		}
+
+		// The user did not pass a specific repo so get all.
+		for _, org := range orgs {
+			page := 1
+			perPage := 100
+			if err := getRepositories(ctx, client, page, perPage, org); err != nil {
+				logrus.WithFields(logrus.Fields{
+					"org": org,
+				}).Fatal(err)
+			}
+		}
+		return nil
 	}
 
-	// The user did not pass a specific repo so get all.
-	for _, org := range orgs {
-		page := 1
-		perPage := 100
-		if err := getRepositories(ctx, client, page, perPage, org); err != nil {
-			logrus.WithFields(logrus.Fields{
-				"org": org,
-			}).Fatal(err)
-		}
-	}
+	// Run our program.
+	p.Run()
 }
 
 func getRepositories(ctx context.Context, client *github.Client, page, perPage int, org string) error {
@@ -337,14 +341,4 @@ func getIssue(ctx context.Context, client *github.Client, owner, repo string) (*
 	}
 
 	return nil, nil
-}
-
-func usageAndExit(message string, exitCode int) {
-	if message != "" {
-		fmt.Fprintf(os.Stderr, message)
-		fmt.Fprintf(os.Stderr, "\n\n")
-	}
-	flag.Usage()
-	fmt.Fprintf(os.Stderr, "\n")
-	os.Exit(exitCode)
 }
