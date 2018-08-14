@@ -42,7 +42,7 @@ var (
 		"kubernetes-client",
 		"kubernetes-csi",
 		"kubernetes-incubator",
-		"kubernetes-retired", // maybe just ignore this one
+		//"kubernetes-retired", // maybe just ignore this one
 		"kubernetes-sig-testing",
 		"kubernetes-sigs",
 	}
