@@ -116,7 +116,10 @@ func main() {
 
 		// Create the http client.
 		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: token},
+			&oauth2.Token{
+				AccessToken: token,
+				TokenType:   "token",
+			},
 		)
 		tc := oauth2.NewClient(ctx, ts)
 
