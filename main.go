@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
@@ -80,7 +81,8 @@ func main() {
 
 	// Setup the global flags.
 	p.FlagSet = flag.NewFlagSet("global", flag.ExitOnError)
-	p.FlagSet.StringVar(&token, "token", os.Getenv("GITHUB_TOKEN"), "GitHub API token (or env var GITHUB_TOKEN)")
+	var tokenPath string
+	p.FlagSet.StringVar(&tokenPath, "token", "", "/path/to/github-token")
 
 	p.FlagSet.BoolVar(&debug, "d", false, "enable debug logging")
 
@@ -91,9 +93,14 @@ func main() {
 			logrus.SetLevel(logrus.DebugLevel)
 		}
 
-		if token == "" {
-			return errors.New("GitHub token cannot be empty")
+		if tokenPath == "" {
+			return errors.New("--token cannot be empty")
 		}
+		buf, err := ioutil.ReadFile(tokenPath)
+		if err != nil {
+			return fmt.Errorf("Failed to read --token=%q: %v", tokenPath, err)
+		}
+		token = string(buf)
 
 		return nil
 	}
