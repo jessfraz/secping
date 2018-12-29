@@ -404,8 +404,10 @@ func (r repoContext) getSecurityContactsForRepo() error {
 	if err != nil {
 		// The file was not found. We need to check if we already have an existing
 		// issue on the repository opened, and if not create a new issue.
-
 		prev, issue, err := r.ensureOpen(issue)
+		if err != nil {
+			return fmt.Errorf("ensureOpen error: %v", err)
+		}
 
 		if issue != nil {
 			log = log.WithFields(logrus.Fields{
