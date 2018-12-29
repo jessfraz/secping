@@ -10,6 +10,11 @@ A tool for reading the SECURITY_CONTACTS file in a kubernetes repository.
 
 <!-- toc -->
 
+- [Installation](#installation)
+    + [Binaries](#binaries)
+    + [Via Go](#via-go)
+- [Usage](#usage)
+
 <!-- tocstop -->
 
 ## Installation
