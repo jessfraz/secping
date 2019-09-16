@@ -21,17 +21,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	// BANNER is what is printed for help/info output.
-	BANNER = `secping [OPTIONS] [REPO] [REPO...]
-
- .
- Version: %s
- Build: %s
-
-`
-)
-
 type multiString struct {
 	set   bool
 	parts []string
@@ -142,12 +131,12 @@ func main() {
 		}
 
 		if tokenPath == "" && token == "" {
-			return errors.New("Must set --token or --token-path")
+			return errors.New("must set --token or --token-path")
 		}
 		if tokenPath != "" {
 			buf, err := ioutil.ReadFile(tokenPath)
 			if err != nil {
-				return fmt.Errorf("Failed to read --token-path=%q: %v", tokenPath, err)
+				return fmt.Errorf("failed to read --token-path=%q: %v", tokenPath, err)
 			}
 			token = string(buf)
 		}
@@ -602,7 +591,7 @@ func (r repoContext) getIssue() (*github.Issue, error) {
 	for {
 		result, resp, err := r.client.Search.Issues(r.ctx, fmt.Sprintf("in:title is:issue repo:%s/%s %q", r.owner, r.repo, issueTitle), &github.SearchOptions{Sort: "updated"})
 		if _, ok := err.(*github.RateLimitError); ok {
-			wait := resp.Rate.Reset.Sub(time.Now()) + 1*time.Second
+			wait := time.Until(resp.Rate.Reset.Time) + 1*time.Second
 			logrus.Infof("Sleeping for %s...", wait)
 			time.Sleep(wait)
 			continue
