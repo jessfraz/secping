@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"flag"
@@ -19,11 +18,20 @@ import (
 	"github.com/google/go-github/github"
 	"github.com/jessfraz/secping/version"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 )
 
 type multiString struct {
 	set   bool
 	parts []string
+}
+
+type Owners struct {
+	SecurityContacts []struct {
+		GitHubId string `yaml:"github"`
+		Email    string `yaml:"email"`
+		SlackId  string `yaml:"slack"`
+	} `yaml:"security_contacts"`
 }
 
 func (ms *multiString) Set(s string) error {
@@ -74,14 +82,10 @@ var (
 		},
 	}
 
-	issueTitle = "Create a SECURITY_CONTACTS file."
-	issueBody  = `As per the email sent to kubernetes-dev[1], please create a SECURITY_CONTACTS
-file.
+	issueTitle = "Add `security_contacts` to OWNERS file"
+	issueBody  = `As per the OWNERS spec[1], please add entries in the 'security_contacts' field in the OWNERS file.
 
 The template for the file can be found in the kubernetes-template repository[2].
-A description for the file is in the steering-committee docs[3], you might need
-to search that page for "Security Contacts".
-
 Please feel free to ping me on the PR when you make it, otherwise I will see when
 you close this issue. :)
 
@@ -89,9 +93,8 @@ Thanks so much, let me know if you have any questions.
 
 (This issue was generated from a tool, apologies for any weirdness.)
 
-[1] https://groups.google.com/forum/#!topic/kubernetes-dev/codeiIoQ6QE
-[2] https://github.com/kubernetes/kubernetes-template-project/blob/master/SECURITY_CONTACTS
-[3] https://github.com/kubernetes/community/blob/master/committee-steering/governance/sig-governance-template-short.md
+[1] https://github.com/kubernetes/community/blob/master/contributors/guide/owners.md#owners-spec
+[2] https://github.com/kubernetes/kubernetes-template-project/blob/master/OWNERS
 `
 )
 
@@ -99,7 +102,7 @@ func main() {
 	// Create a new cli program.
 	p := cli.NewProgram()
 	p.Name = "secping"
-	p.Description = "A tool for reading the SECURITY_CONTACTS file in a kubernetes repository"
+	p.Description = "A tool for reading `security_contacts` in an OWNERS file in a kubernetes repository"
 
 	// Set the GitCommit and Version.
 	p.GitCommit = version.GITCOMMIT
@@ -322,7 +325,7 @@ func (r repoContext) linkNewIssue(issue *github.Issue, prev int) error {
 		"previous": prev,
 		"issue":    issue.GetHTMLURL(),
 	}).Info("Linking new issue to previous...")
-	msg := fmt.Sprintf("Required SECURITY_CONTACTS file still does not exist on master branch. See #%d for more info.", *issue.Number)
+	msg := fmt.Sprintf("Required `security_contacts` in OWNERS file still does not exist on master branch. See #%d for more info.", *issue.Number)
 	return r.createComment(prev, msg)
 }
 
@@ -343,7 +346,7 @@ func (r repoContext) ensureOpen(issue *github.Issue) (int, *github.Issue, error)
 
 	if !skipOpen && issue == nil {
 		// The issue does not already exist. Create the issue in the
-		// repository that they need to add a SECURITY_CONTACTS file.
+		// repository that they need to add `security_contacts` to the OWNERS file
 		log.Info("Creating new issue...")
 		var err error
 		if issue, err = r.createIssue(issueTitle, issueBody); err != nil {
@@ -365,16 +368,16 @@ func (r repoContext) bumpIssue(issue *github.Issue) error {
 		"updated": *issue.UpdatedAt,
 		"repo":    fmt.Sprintf("%s/%s", r.owner, r.repo),
 	}).Info("Bumping stale issue...")
-	msg := "Required SECURITY_CONTACTS file still does not exist. Please resolve as soon as possible."
+	msg := "Required `security_contacts` in OWNERS file still does not exist. Please resolve as soon as possible."
 	return r.createComment(*issue.Number, msg)
 }
 
 func (r repoContext) getSecurityContactsForRepo() error {
-	// Get the issue on the repository stating that they need to add a
-	// SECURITY_CONTACTS file. This will be checked regardless of if the file
-	// exists or not. If the file does not exist, we need this to know if we need
-	// to open a new issue. If it does exist, we need this to make sure the
-	// issue was closed and cleaned up.
+	// Get the issue on the repository stating that they need to add
+	// `security_contacts` to the OWNERS file. This will be checked regardless of
+	// if the file exists or not. If the file does not exist, we need this to
+	// know if we need to open a new issue. If it does exist, we need this to
+	// make sure the issue was closed and cleaned up.
 	log := logrus.WithFields(logrus.Fields{
 		"repo": fmt.Sprintf("%s/%s", r.owner, r.repo),
 	})
@@ -384,14 +387,27 @@ func (r repoContext) getSecurityContactsForRepo() error {
 		return fmt.Errorf("getting issue failed: %v", err)
 	}
 
-	// Get the file contents for SECURITY_CONTACTS.
-	content, _, _, err := r.client.Repositories.GetContents(r.ctx, r.owner, r.repo, "SECURITY_CONTACTS", &github.RepositoryContentGetOptions{Ref: "master"})
+	// Get the file contents for OWNERS.
+	content, _, _, err := r.client.Repositories.GetContents(r.ctx, r.owner, r.repo, "OWNERS", &github.RepositoryContentGetOptions{Ref: "master"})
 	if err != nil && !strings.Contains(err.Error(), "404") {
 		// Return the error early here if it is not a "Not Found" error.
-		return fmt.Errorf("getting SECURITY_CONTACTS file failed: %v", err)
+		return fmt.Errorf("getting OWNERS file failed: %v", err)
 	}
+
+	// Get the file contents.
+	file, err := content.GetContent()
 	if err != nil {
-		// The file was not found. We need to check if we already have an existing
+		return fmt.Errorf("getting OWNERS content failed: %v", err)
+	}
+
+	// Parse OWNERS and check that `security_contacts` exists and is not empty
+	owners := Owners{}
+	err = yaml.Unmarshal([]byte(file), &owners)
+	if err != nil {
+		return fmt.Errorf("Unmarshalling OWNERS failed: %v", err)
+	}
+	if len(owners.SecurityContacts) == 0 {
+		// `security_contacts` is empty. We need to check if we already have an existing
 		// issue on the repository opened, and if not create a new issue.
 		prev, issue, err := r.ensureOpen(issue)
 		if err != nil {
@@ -417,18 +433,12 @@ func (r repoContext) getSecurityContactsForRepo() error {
 			}
 		}
 
-		log.Warn("SECURITY_CONTACTS missing")
+		log.Warn("`security_contacts` in OWNERS is empty")
 		return nil
 	}
 
-	// Get the file contents.
-	file, err := content.GetContent()
-	if err != nil {
-		return fmt.Errorf("getting SECURITY_CONTACTS content failed: %v", err)
-	}
-
-	// Clearly we have a SECURITY_CONTACTS file, let's make sure the original
-	// issue we opened on the repository is now closed.
+	// Clearly we have an OWNERS file with non-empty `security_contacts`,
+	// let's make sure the original issue we opened on the repository is now closed.
 	if !skipClose && issue != nil && issue.GetState() == "open" {
 		// The issue is still open we should close it.
 		log := log.WithFields(logrus.Fields{
@@ -436,7 +446,7 @@ func (r repoContext) getSecurityContactsForRepo() error {
 			"state": issue.GetState(),
 		})
 		log.Warn("Need to close issue")
-		msg := "Thank you for creating a SECURITY_CONTACTS file. Please `/close` the issue.\n/close"
+		msg := "Thank you for populating `security_contacts` in OWNERS file. Please `/close` the issue.\n/close"
 		comment, err := r.getComment(*issue.Number, msg)
 		if err != nil {
 			return fmt.Errorf("checking for close comment: %v", err)
@@ -453,24 +463,22 @@ func (r repoContext) getSecurityContactsForRepo() error {
 	if skipEmails {
 		return nil
 	}
-	// Iterate over each line.
-	scanner := bufio.NewScanner(strings.NewReader(file))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		// Ignore the comment or empty lines.
-		if strings.HasPrefix(line, "#") || len(line) <= 0 {
-			continue
-		}
-
-		email, err := r.getUserEmail(line)
-		if err != nil {
-			return fmt.Errorf("getting user %s's email failed: %v", line, err)
-		}
+	for _, contact := range owners.SecurityContacts {
 
 		logrus.WithFields(logrus.Fields{
 			"repo": fmt.Sprintf("%s/%s", r.owner, r.repo),
-		}).Infof("@%s, %s", line, email)
+		}).Infof("@%s, %s, %s", contact.GitHubId, contact.Email, contact.SlackId)
+
+		if contact.Email == "" {
+			email, err := r.getUserEmail(contact.GitHubId)
+			if err != nil {
+				return fmt.Errorf("getting user %s's email failed: %v", contact.GitHubId, err)
+			}
+
+			logrus.WithFields(logrus.Fields{
+				"repo": fmt.Sprintf("%s/%s", r.owner, r.repo),
+			}).Infof("Extra email check for @%s: %s", contact.GitHubId, email)
+		}
 	}
 
 	return nil
@@ -516,7 +524,7 @@ func (r repoContext) assignIssue(issue *github.Issue) error {
 		return nil
 	}
 
-	msg := fmt.Sprintf("%s/%s still needs a SECURITY_CONTACTS file.\n/assign %s", r.owner, r.repo, strings.Join(targets, " "))
+	msg := fmt.Sprintf("%s/%s still needs `security_contacts` in the OWNERS.\n/assign %s", r.owner, r.repo, strings.Join(targets, " "))
 	if err = r.createComment(*issue.Number, msg); err != nil {
 		return fmt.Errorf("create comment: %v", err)
 	}
