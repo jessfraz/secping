@@ -26,11 +26,11 @@ type multiString struct {
 	parts []string
 }
 
-type Owners struct {
+type ownersFile struct {
 	SecurityContacts []struct {
-		GitHubId string `yaml:"github"`
+		GitHubID string `yaml:"github"`
 		Email    string `yaml:"email"`
-		SlackId  string `yaml:"slack"`
+		SlackID  string `yaml:"slack"`
 	} `yaml:"security_contacts"`
 }
 
@@ -401,10 +401,10 @@ func (r repoContext) getSecurityContactsForRepo() error {
 	}
 
 	// Parse OWNERS and check that `security_contacts` exists and is not empty
-	owners := Owners{}
+	owners := ownersFile{}
 	err = yaml.Unmarshal([]byte(file), &owners)
 	if err != nil {
-		return fmt.Errorf("Unmarshalling OWNERS failed: %v", err)
+		return fmt.Errorf("unmarshalling OWNERS failed: %v", err)
 	}
 	if len(owners.SecurityContacts) == 0 {
 		// `security_contacts` is empty. We need to check if we already have an existing
@@ -467,17 +467,17 @@ func (r repoContext) getSecurityContactsForRepo() error {
 
 		logrus.WithFields(logrus.Fields{
 			"repo": fmt.Sprintf("%s/%s", r.owner, r.repo),
-		}).Infof("@%s, %s, %s", contact.GitHubId, contact.Email, contact.SlackId)
+		}).Infof("@%s, %s, %s", contact.GitHubID, contact.Email, contact.SlackID)
 
 		if contact.Email == "" {
-			email, err := r.getUserEmail(contact.GitHubId)
+			email, err := r.getUserEmail(contact.GitHubID)
 			if err != nil {
-				return fmt.Errorf("getting user %s's email failed: %v", contact.GitHubId, err)
+				return fmt.Errorf("getting user %s's email failed: %v", contact.GitHubID, err)
 			}
 
 			logrus.WithFields(logrus.Fields{
 				"repo": fmt.Sprintf("%s/%s", r.owner, r.repo),
-			}).Infof("Extra email check for @%s: %s", contact.GitHubId, email)
+			}).Infof("Extra email check for @%s: %s", contact.GitHubID, email)
 		}
 	}
 
