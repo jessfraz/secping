@@ -30,7 +30,6 @@ type ownersFile struct {
 	SecurityContacts []struct {
 		GitHubID string `yaml:"github"`
 		Email    string `yaml:"email"`
-		SlackID  string `yaml:"slack"`
 	} `yaml:"security_contacts"`
 }
 
@@ -467,7 +466,7 @@ func (r repoContext) getSecurityContactsForRepo() error {
 
 		logrus.WithFields(logrus.Fields{
 			"repo": fmt.Sprintf("%s/%s", r.owner, r.repo),
-		}).Infof("@%s, %s, %s", contact.GitHubID, contact.Email, contact.SlackID)
+		}).Infof("@%s, %s", contact.GitHubID, contact.Email)
 
 		if contact.Email == "" {
 			email, err := r.getUserEmail(contact.GitHubID)
