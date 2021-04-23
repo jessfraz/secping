@@ -33,7 +33,7 @@ $ go get github.com/jessfraz/secping
 
 ```console
 $ secping -h
-secping -  A tool for reading the SECURITY_CONTACTS file in a kubernetes repository.
+secping -  A tool for reading `security_contacts` in an OWNERS file in a kubernetes repository.
 
 Usage: secping <command>
 
