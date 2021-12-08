@@ -67,13 +67,16 @@ var (
 	orgs = multiString{
 		// TODO: Drop unused orgs
 		parts: []string{
-			"kubernetes",
-			"kubernetes-client",
-			"kubernetes-csi",
-			"kubernetes-incubator",
-			//"kubernetes-retired", // maybe just ignore this one
-			"kubernetes-sig-testing",
-			"kubernetes-sigs",
+			/*
+				"kubernetes",
+				"kubernetes-client",
+				"kubernetes-csi",
+				"kubernetes-incubator",
+				//"kubernetes-retired", // maybe just ignore this one
+				"kubernetes-sig-testing",
+				"kubernetes-sigs",
+			*/
+			"collabit",
 		},
 	}
 
