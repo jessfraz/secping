@@ -39,7 +39,7 @@ func (ms *multiString) String() string {
 	return strings.Join(ms.parts, ", ")
 }
 
-const defaultBranch = "master"
+//const defaultBranch = "master"
 
 var (
 	token string
@@ -387,8 +387,16 @@ func (r repoContext) getSecurityContactsForRepo() error {
 		return fmt.Errorf("getting issue failed: %v", err)
 	}
 
+	//branch := r.client.Repositories.Get(r.ctx, r.owner, r.repo)
+
 	// Get the file contents for SECURITY_CONTACTS.
-	content, _, _, err := r.client.Repositories.GetContents(r.ctx, r.owner, r.repo, "SECURITY_CONTACTS", &github.RepositoryContentGetOptions{Ref: defaultBranch})
+	content, _, _, err := r.client.Repositories.GetContents(
+		r.ctx,
+		r.owner,
+		r.repo,
+		"SECURITY_CONTACTS",
+		&github.RepositoryContentGetOptions{},
+	)
 	if err != nil && !strings.Contains(err.Error(), "404") {
 		// Return the error early here if it is not a "Not Found" error.
 		return fmt.Errorf("getting SECURITY_CONTACTS file failed: %v", err)
