@@ -39,6 +39,8 @@ func (ms *multiString) String() string {
 	return strings.Join(ms.parts, ", ")
 }
 
+const defaultBranch = "master"
+
 var (
 	token string
 
@@ -61,8 +63,9 @@ var (
 	}
 
 	// This list of organizations comes from:
-	// https://github.com/kubernetes/community/blob/master/org-owners-guide.md#current-organizations-in-use
+	// https://git.k8s.io/community/github-management#actively-used-github-organizations
 	orgs = multiString{
+		// TODO: Drop unused orgs
 		parts: []string{
 			"kubernetes",
 			"kubernetes-client",
@@ -90,8 +93,8 @@ Thanks so much, let me know if you have any questions.
 (This issue was generated from a tool, apologies for any weirdness.)
 
 [1] https://groups.google.com/forum/#!topic/kubernetes-dev/codeiIoQ6QE
-[2] https://github.com/kubernetes/kubernetes-template-project/blob/master/SECURITY_CONTACTS
-[3] https://github.com/kubernetes/community/blob/master/committee-steering/governance/sig-governance-template-short.md
+[2] https://git.k8s.io/kubernetes-template-project/SECURITY_CONTACTS
+[3] https://github.com/kubernetes/community/blob/c9b921c9f3281c48749a49b02085444f5450dad0/committee-steering/governance/sig-governance-template-short.md
 `
 )
 
@@ -322,7 +325,7 @@ func (r repoContext) linkNewIssue(issue *github.Issue, prev int) error {
 		"previous": prev,
 		"issue":    issue.GetHTMLURL(),
 	}).Info("Linking new issue to previous...")
-	msg := fmt.Sprintf("Required SECURITY_CONTACTS file still does not exist on master branch. See #%d for more info.", *issue.Number)
+	msg := fmt.Sprintf("Required SECURITY_CONTACTS file still does not exist in the repo. See #%d for more info.", *issue.Number)
 	return r.createComment(prev, msg)
 }
 
@@ -385,7 +388,7 @@ func (r repoContext) getSecurityContactsForRepo() error {
 	}
 
 	// Get the file contents for SECURITY_CONTACTS.
-	content, _, _, err := r.client.Repositories.GetContents(r.ctx, r.owner, r.repo, "SECURITY_CONTACTS", &github.RepositoryContentGetOptions{Ref: "master"})
+	content, _, _, err := r.client.Repositories.GetContents(r.ctx, r.owner, r.repo, "SECURITY_CONTACTS", &github.RepositoryContentGetOptions{Ref: defaultBranch})
 	if err != nil && !strings.Contains(err.Error(), "404") {
 		// Return the error early here if it is not a "Not Found" error.
 		return fmt.Errorf("getting SECURITY_CONTACTS file failed: %v", err)
