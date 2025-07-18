@@ -1,28 +1,22 @@
 # github.com/genuinetools/pkg v0.0.0-20181022210355-2fcf164d37cb
+## explicit
 github.com/genuinetools/pkg/cli
-# github.com/golang/protobuf v1.2.0
-github.com/golang/protobuf/proto
 # github.com/google/go-github v17.0.0+incompatible
+## explicit
 github.com/google/go-github/github
 # github.com/google/go-querystring v1.0.0
+## explicit
 github.com/google/go-querystring/query
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
+## explicit
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/sirupsen/logrus v1.4.2
+## explicit
 github.com/sirupsen/logrus
-# golang.org/x/net v0.0.0-20190108225652-1e06a53dbb7e
-golang.org/x/net/context/ctxhttp
-golang.org/x/net/context
-# golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+# golang.org/x/oauth2 v0.27.0
+## explicit; go 1.23.0
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
 # golang.org/x/sys v0.0.0-20190422165155-953cdadca894
+## explicit; go 1.12
 golang.org/x/sys/unix
-# google.golang.org/appengine v1.4.0
-google.golang.org/appengine/urlfetch
-google.golang.org/appengine/internal
-google.golang.org/appengine/internal/urlfetch
-google.golang.org/appengine/internal/base
-google.golang.org/appengine/internal/datastore
-google.golang.org/appengine/internal/log
-google.golang.org/appengine/internal/remote_api
