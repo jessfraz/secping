@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
@@ -134,7 +133,7 @@ func main() {
 			return errors.New("must set --token or --token-path")
 		}
 		if tokenPath != "" {
-			buf, err := ioutil.ReadFile(tokenPath)
+			buf, err := os.ReadFile(tokenPath)
 			if err != nil {
 				return fmt.Errorf("failed to read --token-path=%q: %v", tokenPath, err)
 			}
